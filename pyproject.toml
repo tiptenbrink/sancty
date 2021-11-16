@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "sancty"
+version = "0.1.0"
+description = ""
+authors = ["Tip ten Brink <75669206+tiptenbrink@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "~3.10"
+numpy = "^1.21.4"
+cwcwidth = "^0.1.5"
+blessed = { git = "https://github.com/tiptenbrink/blessed" }
+
+[tool.poetry.dev-dependencies]
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
