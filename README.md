@@ -1,5 +1,5 @@
-# sancty
-Sancty is a extension to jquast/blessed for simple editor-like terminal apps
+# Sancty
+Sancty is an extension to jquast/blessed for simple editor-like terminal apps
 
 ### Usage
 
@@ -7,4 +7,13 @@ Sancty has two major components, `Reader` (which follows the `ReaderProtocol`) a
 
 If you don't want to customize the run architecture, but _do_ want to customize the `Reader` and `Renderer` classes, simply extend them (but be sure to still conform to their respective protocols) and pass the classes as variables to `start_terminal()`.
 
-You can also pass a custom `replace_dict`, which is a dictionary of all 
+You can also pass a custom `replace_dict`, which is a dictionary of all possible `\\` commands. By default, the key swill correspond to strings that will be replaced by the value strings, but if the key is an integer, a custom `special_slash_fn` can also be passed to perform arbitrary transformations of the render array. Note that all negative numbers are reserved for this program.
+
+#### Default `\\` commands
+
+```python
+default_replace_dict = {
+    "clr": (-1, "Clears all text"),
+    "help": (-2, "Shows all slash commands"),
+}
+```

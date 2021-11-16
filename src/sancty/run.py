@@ -5,7 +5,7 @@ import multiprocessing as mp
 
 
 def create_process_reader(clss: ReaderProtocol):
-    class ProcessReader(clss):
+    class ProcessReadr(clss):
         render_queue: Queue
         exit_event: Event
         resizing_event: Event
@@ -33,11 +33,11 @@ def create_process_reader(clss: ReaderProtocol):
         def exit_set(self):
             self.exit_event.set()
             self.exited = True
-    return ProcessReader
+    return ProcessReadr
 
 
 def create_process_renderer(clss: RendererProtocol):
-    class ProcessRenderer(clss):
+    class ProcessRendr(clss):
         render_queue: Queue
         exit_event: Event
         resizing: Event
@@ -62,7 +62,7 @@ def create_process_renderer(clss: RendererProtocol):
             except QueueEmpty:
                 return True, values
 
-    return ProcessRenderer
+    return ProcessRendr
 
 
 ProcessReader = create_process_reader(Reader)
@@ -70,7 +70,8 @@ ProcessReader = create_process_reader(Reader)
 ProcessRenderer = create_process_renderer(Renderer)
 
 
-def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | int] = None, special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None):
+def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tuple[int, str]] = None,
+                   special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None):
     render_queue = mp.Manager().Queue()
     exit_queue = mp.Manager().Queue()
     exit_event = mp.Manager().Event()
@@ -87,10 +88,12 @@ def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | int
     else:
         reader_cls = ProcessReader
 
-    print("press 'ESC' to quit.")
-    print("\n" * 20 + term.move_x(0) + term.move_up(18))
+    print("Welcome to Sancty Text!")
+    print("Press 'ESC', 'CTRL+C' or 'CTRL+D' to quit. "
+          "Type \\help for a list of '\\\\' commands (also clears all text).")
+    print("\n" * 20 + term.move_x(0) + term.move_up(20))
 
-    renderer: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict)
+    renderer: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict, special_slash_fn)
     reader: ReaderProtocol = reader_cls(term, render_queue, exit_event, resizing)
 
     input_process = mp.Process(target=reader.read_terminal)

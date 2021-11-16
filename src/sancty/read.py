@@ -49,7 +49,7 @@ class Reader(ReaderProtocol):
                     start_time = tm.process_time_ns()
                     val = self.term.inkey(timeout=0.005)
 
-                    if val == chr(3) or val.code == self.term.KEY_ESCAPE:
+                    if val == chr(3) or val == chr(4) or val.code == self.term.KEY_ESCAPE:
                         break
                     if not val == '':
                         values.append(val)

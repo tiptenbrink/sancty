@@ -11,8 +11,10 @@ class ReplaceRender:
 
 
 default_replace_dict = {
-    "clr": -1,
+    "clr": (-1, "Clears all text"),
+    "help": (-2, "Shows all slash commands"),
 }
+
 
 def default_special_slash_fn(_control_num, render_copy, paragraphs_copy) -> tuple[list, list]:
     return render_copy, paragraphs_copy
@@ -23,7 +25,7 @@ class RendererProtocol(Protocol):
     empty_queue: bool
     exited: bool = False
     term: Terminal
-    replace_dict: dict[str, int | str]
+    replace_dict: dict[str, tuple[int, str] | str]
     special_slash_fn: Callable[[int, list, list], tuple[list, list]]
 
     def print_terminal(self) -> None:
@@ -51,7 +53,8 @@ class RendererProtocol(Protocol):
     def backspace(self, current_text, slash_text, matching_slash, width_deleted=False) -> tuple[str, str, bool]:
         """Perform backspace operation on text."""
 
-    def handle_backspace(self, render_array, slash_text, matching_slash, changed_lines=False) -> tuple[list, bool, str, bool]:
+    def handle_backspace(self, render_array, slash_text, matching_slash,
+                         changed_lines=False) -> tuple[list, bool, str, bool]:
         """Handle backspace for terminal text."""
 
     def do_exit(self) -> None:
@@ -63,8 +66,12 @@ class Renderer(RendererProtocol):
     def __init__(self, term, replace_dict=None, special_slash_fn=None):
         if replace_dict is None:
             self.replace_dict = default_replace_dict
+        else:
+            self.replace_dict = replace_dict
         if special_slash_fn is None:
             self.special_slash_fn = default_special_slash_fn
+        else:
+            self.special_slash_fn = special_slash_fn
 
         self.term = term
 
@@ -135,6 +142,7 @@ class Renderer(RendererProtocol):
                         fin_paragraph = paragraph_ends[-1] if paragraph_ends else -1
                         paragraph_ends.append(max(len(render_array) - 1, fin_paragraph + 1))
                         render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
+
                 if len(val) > 0:
                     pass
             else:
@@ -207,10 +215,8 @@ class Renderer(RendererProtocol):
             wrapped: list[str] = self.term.wrap(last_line, drop_whitespace=False)
             if len(wrapped) == 0:
                 wrapped = ['']
-            # if move_up_add == -1:
-            #     with self.term.location(x=0, y=self.term.height - 1):
-            #         print(f'wr {len(wrapped)} + wr0 {len(wrapped[0]) if len(wrapped) > 0 else "Z"}', end='', flush=True)
-            #         tm.sleep(2)
+            # if move_up_add == -1: with self.term.location(x=0, y=self.term.height - 1): print(f'wr {len(wrapped)} +
+            # wr0 {len(wrapped[0]) if len(wrapped) > 0 else "Z"}', end='', flush=True) tm.sleep(2)
             render_array += wrapped
 
         move_up = '' if move_up <= 0 else self.term.move_up(move_up)
@@ -234,7 +240,7 @@ class Renderer(RendererProtocol):
         #     print(f'pea {paragraph_ends}', end='', flush=True)
         return render_array, new_paragraphs
 
-    def slash_replace(self, text) -> int | str:
+    def slash_replace(self, text) -> str | tuple[int, str]:
         actual_text = text.lstrip('\\')
         if actual_text in self.replace_dict.keys():
             return self.replace_dict[actual_text]
@@ -247,11 +253,16 @@ class Renderer(RendererProtocol):
             new_render = render_array.copy()
             new_paragraphs = paragraph_ends.copy()
             new_render[-1] = new_render[-1].rstrip(slash_text)
-            if slash_match == -1:
-                new_render = ['']
-                new_paragraphs = []
-            elif isinstance(slash_match, int):
-                new_render, new_paragraphs = self.special_slash_fn(slash_match, new_render, new_paragraphs)
+            if isinstance(slash_match, tuple) and slash_match:
+                if slash_match[0] == -1:
+                    new_render = ['']
+                    new_paragraphs = []
+                elif slash_match[0] == -2:
+                    new_render = [f'{key} : {value[-1] if isinstance(value, tuple) else value}\n' for key, value in
+                                  self.replace_dict.items()]
+                    new_paragraphs = [i for i in range(len(new_render))]
+                else:
+                    new_render, new_paragraphs = self.special_slash_fn(slash_match[0], new_render, new_paragraphs)
             else:
                 new_render[-1] += slash_match
             slash_text = "\\"
@@ -289,7 +300,8 @@ class Renderer(RendererProtocol):
 
         return current_text, slash_text, matching_slash
 
-    def handle_backspace(self, render_array, slash_text, matching_slash, changed_lines=False) -> tuple[list, bool, str, bool]:
+    def handle_backspace(self, render_array, slash_text, matching_slash, changed_lines=False) -> tuple[
+        list, bool, str, bool]:
         if len(render_array[-1]) > 0:
             render_array[-1], slash_text, matching_slash = self.backspace(render_array[-1], slash_text, matching_slash)
         elif len(render_array) > 1:
