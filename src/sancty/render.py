@@ -67,11 +67,31 @@ class ExternalError(Exception):
 
 class Renderer(RendererProtocol):
 
-    def __init__(self, term, replace_dict=None, special_slash_fn=None):
+    def __init__(self, term, replace_dict=None, special_slash_fn=None, replace_dict_add=True, overwrite=False):
         if replace_dict is None:
             self.replace_dict = default_replace_dict
-        else:
+        elif replace_dict_add:
+            default_keys = set(default_replace_dict.keys())
+            new_keys = set(replace_dict.keys())
+
+            intersecting_keys = default_keys.intersection(new_keys)
+            unique_default = default_keys.difference(intersecting_keys)
+            unique_new = new_keys.difference(intersecting_keys)
+
+            if intersecting_keys:
+                if not overwrite:
+                    raise ValueError("Cannot overwrite default replace dict when overwrite is set to false!")
+                else:
+                    unique_kv_default = [(key, default_replace_dict[key]) for key in unique_default]
+                    key_values = unique_kv_default + list(replace_dict.items())
+            else:
+                unique_kv_replace = [(key, replace_dict[key]) for key in unique_new]
+                key_values = unique_kv_replace + list(default_replace_dict.items())
+            self.replace_dict = {k: v for k, v in key_values}
+        elif overwrite:
             self.replace_dict = replace_dict
+        else:
+            raise ValueError("Cannot replace the replace dict when overwrite is set to false!")
         if special_slash_fn is None:
             self.special_slash_fn = default_special_slash_fn
         else:
@@ -81,7 +101,6 @@ class Renderer(RendererProtocol):
 
     def print_terminal(self):
         values = []
-        i = 0
         render_array = ['']
         paragraph_ends = []
         was_resizing = False
@@ -89,8 +108,6 @@ class Renderer(RendererProtocol):
         slash_text: str = '\\'
         try:
             while not self.has_exited():
-                # with self.term.location(x=0, y=self.term.height - 1):
-                #     print(f'i {i}', end='', flush=True)
                 empty_queue, values = self.update_values(values)
                 if self.is_resizing():
                     was_resizing = True
@@ -119,8 +136,6 @@ class Renderer(RendererProtocol):
                                     slash_text += val
 
                         render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, val=val)
-                        # final_render_lines = render_current(term, render_array.pop(-1), val)
-                        # render_array += final_render_lines
                         if matching_slash:
                             slash_text, new_render, replace_render = self.check_slash(slash_text, render_array,
                                                                                       paragraph_ends)
@@ -137,7 +152,6 @@ class Renderer(RendererProtocol):
                                 paragraph_ends.pop(-1)
                             render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
                                                                                rewrap=changed_lines)
-                        # wrapped, current_text = render_current(term, wrapped, current_text)
                         elif val.code == self.term.KEY_ENTER:
                             if matching_slash:
                                 matching_slash = False
@@ -151,9 +165,6 @@ class Renderer(RendererProtocol):
                         pass
                 else:
                     tm.sleep(0.003)
-                i += 1
-                # with self.term.location(x=0, y=self.term.height - 1):
-                #     print(f'slsh {slash_text}', end='', flush=True)
         except BaseException as bse:
             self.do_exit()
             print()
@@ -175,14 +186,9 @@ class Renderer(RendererProtocol):
 
     def render_current(self, render_array, paragraph_ends, val=None, rewrap=False,
                        replace: Optional[ReplaceRender] = None) -> tuple[list, list]:
-        # if render_array is not None:
-        #     tm.sleep(1)
         new_paragraphs = paragraph_ends
         move_up = -1
-        # if val is not None and current_text is not None:
-        #     current_text += val
         if rewrap or replace is not None:
-            # tm.sleep(1)
             final_k = len(render_array) - 1
             for k, line in enumerate(render_array):
 
@@ -210,44 +216,23 @@ class Renderer(RendererProtocol):
                 wrapped += ['']
 
             render_array = wrapped
-            # with self.term.location(x=0, y=self.term.height - 1):
-            #     print(f'mvup {move_up} + wr {len(wrapped)}', end='', flush=True)
-            # tm.sleep(1)
         else:
             last_line = render_array.pop(-1)
-            # if move_up_add == -1:
-            #     with self.term.location(x=0, y=self.term.height - 1):
-            #         print(f'ra {len(render_array)} + ll {len(last_line)}', end='', flush=True)
-            #         tm.sleep(2)
             if val is not None:
                 last_line += val
 
             wrapped: list[str] = self.term.wrap(last_line, drop_whitespace=False)
             if len(wrapped) == 0:
                 wrapped = ['']
-            # if move_up_add == -1: with self.term.location(x=0, y=self.term.height - 1): print(f'wr {len(wrapped)} +
-            # wr0 {len(wrapped[0]) if len(wrapped) > 0 else "Z"}', end='', flush=True) tm.sleep(2)
             render_array += wrapped
 
         move_up = '' if move_up <= 0 else self.term.move_up(move_up)
         print(self.term.clear_bol + move_up + self.term.move_x(0), end='',
               flush=True)
-        # if rewrap:
-        #     tm.sleep(3)
-        if render_array is not None:
-            # with self.term.location(x=0, y=self.term.height - 1):
-            #     print(len(render_array))
-            # with self.term.location(x=0, y=self.term.height - 2):
-            #     print(str(move_up) + ' ' + repr(move_up))
-            # tm.sleep(4)
-            pass
+
         print(self.term.clear_eos + "\n\r".join(wrapped), end='',
               flush=True)
 
-        # with self.term.location(x=0, y=self.term.height - 2):
-        #     print(f'a {len(render_array[-1])} r {len(render_array)} pe {len(new_paragraphs)}', end='', flush=True)
-        # with self.term.location(x=0, y=term.height - 1):
-        #     print(f'pea {paragraph_ends}', end='', flush=True)
         return render_array, new_paragraphs
 
     def slash_replace(self, text) -> str | tuple[int, str]:

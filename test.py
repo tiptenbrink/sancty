@@ -18,4 +18,9 @@ if __name__ == '__main__':
     #
     # process.join()
 
-    sancty.start_terminal()
+    replace_dict = {
+        "hi": "abc",
+        "clr": (-1, "dummie")
+    }
+
+    sancty.start_terminal(replace_dict=replace_dict, overwrite=True, replace_dict_add=True)

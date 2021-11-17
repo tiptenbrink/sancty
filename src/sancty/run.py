@@ -46,8 +46,9 @@ def create_process_renderer(clss: RendererProtocol):
         exit_event: Event
         resizing: Event
 
-        def __init__(self, term, render_queue, exit_event, resizing, replace_dict=None, special_slash_fn=None):
-            super().__init__(term, replace_dict, special_slash_fn)
+        def __init__(self, term, render_queue, exit_event, resizing, replace_dict=None, special_slash_fn=None,
+                     replace_dict_add=True, overwrite=False):
+            super().__init__(term, replace_dict, special_slash_fn, replace_dict_add, overwrite)
             self.render_queue = render_queue
             self.exit_event = exit_event
             self.resizing = resizing
@@ -84,18 +85,21 @@ def reader_process_start(term, reader, render_queue, exit_event, resizing):
     reader_inst.read_terminal()
 
 
-def render_process_start(term, renderer, render_queue, exit_event, resizing, replace_dict, special_slash_fn):
+def render_process_start(term, renderer, render_queue, exit_event, resizing, replace_dict, special_slash_fn,
+                         replace_dict_add, overwrite):
     if renderer is not None:
         renderer_cls = create_process_renderer(renderer)
     else:
         renderer_cls = create_process_renderer(Renderer)
 
-    renderer_inst: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict, special_slash_fn)
+    renderer_inst: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict,
+                                                   special_slash_fn, replace_dict_add, overwrite)
     renderer_inst.print_terminal()
 
 
 def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tuple[int, str]] = None,
-                   special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None):
+                   special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None,
+                   replace_dict_add: bool = True, overwrite: bool = False):
 
     render_queue = mp.Manager().Queue()
     exit_event = mp.Manager().Event()
@@ -110,7 +114,8 @@ def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tup
 
     input_process = mp.Process(target=reader_process_start, args=(term, reader, render_queue, exit_event, resizing,))
     render_process = mp.Process(target=render_process_start, args=(term, renderer, render_queue, exit_event, resizing,
-                                                                   replace_dict, special_slash_fn,))
+                                                                   replace_dict, special_slash_fn, replace_dict_add,
+                                                                   overwrite,))
 
     processes = []
 
