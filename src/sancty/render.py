@@ -61,6 +61,10 @@ class RendererProtocol(Protocol):
         """Exit"""
 
 
+class ExternalError(Exception):
+    pass
+
+
 class Renderer(RendererProtocol):
 
     def __init__(self, term, replace_dict=None, special_slash_fn=None):
@@ -83,75 +87,81 @@ class Renderer(RendererProtocol):
         was_resizing = False
         matching_slash: bool = False
         slash_text: str = '\\'
+        try:
+            while not self.has_exited():
+                # with self.term.location(x=0, y=self.term.height - 1):
+                #     print(f'i {i}', end='', flush=True)
+                empty_queue, values = self.update_values(values)
+                if self.is_resizing():
+                    was_resizing = True
+                    if empty_queue:
+                        tm.sleep(0.003)
+                    continue
+                if was_resizing:
+                    render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
+                    was_resizing = False
+                if len(render_array) == 0:
+                    render_array = ['']
+                if len(values) > 0:
+                    val = values.pop(0)
+                    if val and not val.is_sequence:
+                        match val:
+                            case "\\":
+                                if matching_slash:
+                                    slash_text = "\\"
+                                matching_slash = True
+                            case char if char.isspace():
+                                if matching_slash:
+                                    matching_slash = False
+                                    slash_text = "\\"
+                            case _:
+                                if matching_slash:
+                                    slash_text += val
 
-        while not self.has_exited():
-            # with self.term.location(x=0, y=self.term.height - 1):
-            #     print(f'i {i}', end='', flush=True)
-            empty_queue, values = self.update_values(values)
-            if self.is_resizing():
-                was_resizing = True
-                if empty_queue:
-                    tm.sleep(0.003)
-                continue
-            if was_resizing:
-                render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
-                was_resizing = False
-            if len(render_array) == 0:
-                render_array = ['']
-            if len(values) > 0:
-                val = values.pop(0)
-                if val and not val.is_sequence:
-                    match val:
-                        case "\\":
-                            if matching_slash:
-                                slash_text = "\\"
-                            matching_slash = True
-                        case char if char.isspace():
+                        render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, val=val)
+                        # final_render_lines = render_current(term, render_array.pop(-1), val)
+                        # render_array += final_render_lines
+                        if matching_slash:
+                            slash_text, new_render, replace_render = self.check_slash(slash_text, render_array,
+                                                                                      paragraph_ends)
+                            if replace_render is not None:
+                                render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
+                                                                                   replace=replace_render)
+                                matching_slash = False
+
+                    elif val.is_sequence:
+                        if val.code in (self.term.KEY_BACKSPACE, self.term.KEY_DELETE):
+                            render_array, changed_lines, slash_text, matching_slash = self.handle_backspace(render_array,
+                                                                                                            slash_text,
+                                                                                                            matching_slash)
+                            if paragraph_ends and changed_lines and len(render_array) - 2 == paragraph_ends[-1]:
+                                paragraph_ends.pop(-1)
+                            render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
+                                                                               rewrap=changed_lines)
+                        # wrapped, current_text = render_current(term, wrapped, current_text)
+                        elif val.code == self.term.KEY_ENTER:
                             if matching_slash:
                                 matching_slash = False
                                 slash_text = "\\"
-                        case _:
-                            if matching_slash:
-                                slash_text += val
+                            fin_paragraph = paragraph_ends[-1] if paragraph_ends else -1
+                            paragraph_ends.append(max(len(render_array) - 1, fin_paragraph + 1))
+                            render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
 
-                    render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, val=val)
-                    # final_render_lines = render_current(term, render_array.pop(-1), val)
-                    # render_array += final_render_lines
-                    if matching_slash:
-                        slash_text, new_render, replace_render = self.check_slash(slash_text, render_array,
-                                                                                  paragraph_ends)
-                        if replace_render is not None:
-                            render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
-                                                                               replace=replace_render)
-                            matching_slash = False
-
-                elif val.is_sequence:
-                    if val.code in (self.term.KEY_BACKSPACE, self.term.KEY_DELETE):
-                        render_array, changed_lines, slash_text, matching_slash = self.handle_backspace(render_array,
-                                                                                                        slash_text,
-                                                                                                        matching_slash)
-                        if paragraph_ends and changed_lines and len(render_array) - 2 == paragraph_ends[-1]:
-                            paragraph_ends.pop(-1)
-                        render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
-                                                                           rewrap=changed_lines)
-                    # wrapped, current_text = render_current(term, wrapped, current_text)
-                    elif val.code == self.term.KEY_ENTER:
-                        if matching_slash:
-                            matching_slash = False
-                            slash_text = "\\"
-                        fin_paragraph = paragraph_ends[-1] if paragraph_ends else -1
-                        paragraph_ends.append(max(len(render_array) - 1, fin_paragraph + 1))
-                        render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
-
-                if len(val) > 0:
-                    pass
-            else:
-                tm.sleep(0.003)
-            i += 1
-            # with self.term.location(x=0, y=self.term.height - 1):
-            #     print(f'slsh {slash_text}', end='', flush=True)
-
-        self.do_exit()
+                    if len(val) > 0:
+                        pass
+                else:
+                    tm.sleep(0.003)
+                i += 1
+                # with self.term.location(x=0, y=self.term.height - 1):
+                #     print(f'slsh {slash_text}', end='', flush=True)
+        except BaseException as bse:
+            self.do_exit()
+            print()
+            try:
+                raise bse
+            except ExternalError as vle:
+                print("External error...", flush=True)
+                raise SystemExit(vle)
 
     def has_exited(self) -> bool:
         return True
@@ -246,30 +256,35 @@ class Renderer(RendererProtocol):
             return self.replace_dict[actual_text]
 
     def check_slash(self, slash_text, render_array, paragraph_ends) -> tuple[str, list, Optional[ReplaceRender]]:
-        slash_match = self.slash_replace(slash_text)
-        do_render = slash_match is not None
-        new_render = render_array
-        if do_render:
-            new_render = render_array.copy()
-            new_paragraphs = paragraph_ends.copy()
-            new_render[-1] = new_render[-1].rstrip(slash_text)
-            if isinstance(slash_match, tuple) and slash_match:
-                if slash_match[0] == -1:
-                    new_render = ['']
-                    new_paragraphs = []
-                elif slash_match[0] == -2:
-                    new_render = [f'{key} : {value[-1] if isinstance(value, tuple) else value}\n' for key, value in
-                                  self.replace_dict.items()]
-                    new_paragraphs = [i for i in range(len(new_render))]
+        try:
+            slash_match = self.slash_replace(slash_text)
+            do_render = slash_match is not None
+            new_render = render_array
+            if do_render:
+                new_render = render_array.copy()
+                new_paragraphs = paragraph_ends.copy()
+                new_render[-1] = new_render[-1].rstrip(slash_text)
+                if isinstance(slash_match, tuple) and slash_match:
+                    if slash_match[0] == -1:
+                        new_render = ['']
+                        new_paragraphs = []
+                    elif slash_match[0] == -2:
+                        new_render = [f'{key} : {value[-1] if isinstance(value, tuple) else value}\n' for key, value in
+                                      self.replace_dict.items()]
+                        new_paragraphs = [i for i in range(len(new_render))]
+                    else:
+                        new_render, new_paragraphs = self.special_slash_fn(slash_match[0], new_render, new_paragraphs)
                 else:
-                    new_render, new_paragraphs = self.special_slash_fn(slash_match[0], new_render, new_paragraphs)
+                    new_render[-1] += slash_match
+                slash_text = "\\"
+                replace_render = ReplaceRender(new_render, new_paragraphs)
             else:
-                new_render[-1] += slash_match
-            slash_text = "\\"
-            replace_render = ReplaceRender(new_render, new_paragraphs)
-        else:
-            replace_render = None
-        return slash_text, new_render, replace_render
+                replace_render = None
+            return slash_text, new_render, replace_render
+        except (ValueError, ArithmeticError, AttributeError, TypeError) as e:
+            print(e)
+            print("External slash error...", flush=True)
+            raise ExternalError(e)
 
     def backspace(self, current_text, slash_text, matching_slash, width_deleted=False) -> tuple[str, str, bool]:
         text_len = len(current_text)

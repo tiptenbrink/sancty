@@ -16,6 +16,9 @@ def create_process_reader(clss: ReaderProtocol):
             self.render_queue = render_queue
             self.resizing_event = resizing_event
 
+        def has_exited(self):
+            return self.exit_event.is_set()
+
         def resizing_set(self):
             self.resizing_event.set()
             self.resizing = True
@@ -33,6 +36,7 @@ def create_process_reader(clss: ReaderProtocol):
         def exit_set(self):
             self.exit_event.set()
             self.exited = True
+
     return ProcessReadr
 
 
@@ -62,6 +66,10 @@ def create_process_renderer(clss: RendererProtocol):
             except QueueEmpty:
                 return True, values
 
+        def do_exit(self):
+            self.exit_event.set()
+
+
     return ProcessRendr
 
 
@@ -70,32 +78,7 @@ ProcessReader = create_process_reader(Reader)
 ProcessRenderer = create_process_renderer(Renderer)
 
 
-def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tuple[int, str]] = None,
-                   special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None):
-    render_queue = mp.Manager().Queue()
-    exit_queue = mp.Manager().Queue()
-    exit_event = mp.Manager().Event()
-    resizing = mp.Manager().Event()
-
-    term = Terminal()
-
-    if renderer is not None:
-        renderer_cls = create_process_renderer(renderer)
-    else:
-        renderer_cls = ProcessRenderer
-    if reader is not None:
-        reader_cls = create_process_reader(reader)
-    else:
-        reader_cls = ProcessReader
-
-    print("Welcome to Sancty Text!")
-    print("Press 'ESC', 'CTRL+C' or 'CTRL+D' to quit. "
-          "Type \\help for a list of '\\\\' commands (also clears all text).")
-    print("\n" * 20 + term.move_x(0) + term.move_up(20))
-
-    renderer: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict, special_slash_fn)
-    reader: ReaderProtocol = reader_cls(term, render_queue, exit_event, resizing)
-
+def process_start(renderer, reader):
     input_process = mp.Process(target=reader.read_terminal)
     render_process = mp.Process(target=renderer.print_terminal)
 
@@ -112,5 +95,31 @@ def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tup
         process.join()
 
 
-if __name__ == '__main__':
-    start_terminal()
+def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tuple[int, str]] = None,
+                   special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None):
+
+    render_queue = mp.Manager().Queue()
+    exit_queue = mp.Manager().Queue()
+    exit_event = mp.Manager().Event()
+    resizing = mp.Manager().Event()
+
+    term = Terminal()
+
+    if renderer is not None:
+        renderer_cls = create_process_renderer(renderer)
+    else:
+        renderer_cls = ProcessRenderer
+    if reader is not None:
+        reader_cls = create_process_reader(reader)
+    else:
+        reader_cls = ProcessReader
+
+    print("Welcome to Sancty Text! (Test1)")
+    print("Press 'ESC', 'CTRL+C' or 'CTRL+D' to quit. "
+          "Type \\help for a list of '\\\\' commands (also clears all text).")
+    print("\n" * 20 + term.move_x(0) + term.move_up(20))
+
+    renderer: RendererProtocol = renderer_cls(term, render_queue, exit_event, resizing, replace_dict, special_slash_fn)
+    reader: ReaderProtocol = reader_cls(term, render_queue, exit_event, resizing)
+
+    process_start(renderer, reader)
