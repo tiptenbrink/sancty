@@ -99,7 +99,7 @@ def render_process_start(term, renderer, render_queue, exit_event, resizing, rep
 
 def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tuple[int, str]] = None,
                    special_slash_fn: Callable[[int, list, list], tuple[list, list]] = None,
-                   replace_dict_add: bool = True, overwrite: bool = False):
+                   replace_dict_add: bool = True, overwrite: bool = False, welcome_message="Welcome to Sancty Text!"):
 
     render_queue = mp.Manager().Queue()
     exit_event = mp.Manager().Event()
@@ -107,7 +107,7 @@ def start_terminal(renderer=None, reader=None, replace_dict: dict[str, str | tup
 
     term = Terminal()
 
-    print("Welcome to Sancty Text! (Test1)")
+    print(welcome_message)
     print("Press 'ESC', 'CTRL+C' or 'CTRL+D' to quit. "
           "Type \\help for a list of '\\\\' commands (also clears all text).")
     # print("\n" * 20 + term.move_x(0) + term.move_up(20))
