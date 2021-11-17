@@ -248,7 +248,7 @@ class Renderer(RendererProtocol):
             if do_render:
                 new_render = render_array.copy()
                 new_paragraphs = paragraph_ends.copy()
-                new_render[-1] = new_render[-1].rstrip(slash_text)
+                new_render[-1] = new_render[-1].removesuffix(slash_text)
                 if isinstance(slash_match, tuple) and slash_match:
                     if slash_match[0] == -1:
                         new_render = ['']
