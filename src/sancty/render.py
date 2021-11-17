@@ -131,9 +131,8 @@ class Renderer(RendererProtocol):
 
                     elif val.is_sequence:
                         if val.code in (self.term.KEY_BACKSPACE, self.term.KEY_DELETE):
-                            render_array, changed_lines, slash_text, matching_slash = self.handle_backspace(render_array,
-                                                                                                            slash_text,
-                                                                                                            matching_slash)
+                            render_array, changed_lines, slash_text, matching_slash = self.handle_backspace(
+                                render_array, slash_text, matching_slash)
                             if paragraph_ends and changed_lines and len(render_array) - 2 == paragraph_ends[-1]:
                                 paragraph_ends.pop(-1)
                             render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
@@ -145,7 +144,8 @@ class Renderer(RendererProtocol):
                                 slash_text = "\\"
                             fin_paragraph = paragraph_ends[-1] if paragraph_ends else -1
                             paragraph_ends.append(max(len(render_array) - 1, fin_paragraph + 1))
-                            render_array, paragraph_ends = self.render_current(render_array, paragraph_ends, rewrap=True)
+                            render_array, paragraph_ends = self.render_current(render_array, paragraph_ends,
+                                                                               rewrap=True)
 
                     if len(val) > 0:
                         pass
@@ -315,8 +315,8 @@ class Renderer(RendererProtocol):
 
         return current_text, slash_text, matching_slash
 
-    def handle_backspace(self, render_array, slash_text, matching_slash, changed_lines=False) -> tuple[
-        list, bool, str, bool]:
+    def handle_backspace(self, render_array, slash_text, matching_slash, changed_lines=False) -> tuple[list, bool,
+                                                                                                       str, bool]:
         if len(render_array[-1]) > 0:
             render_array[-1], slash_text, matching_slash = self.backspace(render_array[-1], slash_text, matching_slash)
         elif len(render_array) > 1:

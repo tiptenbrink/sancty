@@ -54,6 +54,7 @@ class Reader(ReaderProtocol):
                             break
                         if not val == '':
                             values.append(val)
+
                         current_time += tm.process_time_ns() - start_time
 
                         if i % 1000 == 0:

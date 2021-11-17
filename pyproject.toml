@@ -10,7 +10,7 @@ license = "Apache-2.0"
 "Source Code" = "https://github.com/tiptenbrink/sancty"
 
 [tool.poetry.dependencies]
-python = "~3.10"
+python = "^3.10"
 cwcwidth = "^0.1.5"
 blessed = "1.19.0"
 
